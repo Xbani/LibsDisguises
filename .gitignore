@@ -24,3 +24,5 @@ gradle-app.setting
 *.iml
 *.ipr
 .kotlin
+target/
+dist/
