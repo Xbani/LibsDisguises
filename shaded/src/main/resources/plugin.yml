@@ -227,6 +227,7 @@ permissions:
       libsdisguises.seecmd.disguiseentityanimation: true
   libsdisguises.seecmd.disguiseviewself:
     description: See the /disguiseviewself command in tab-completion
+    default: true
   libsdisguises.seecmd.disguiseviewbar:
     description: See the /disguiseviewbar command in tab-completion
   libsdisguises.seecmd.disguise:

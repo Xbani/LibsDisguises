@@ -261,6 +261,9 @@ public class SoundManager {
         ClientVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion().toClientVersion();
 
         try (InputStream stream = LibsDisguises.getInstance().getResource("SOUND_MAPPINGS.txt")) {
+            if (stream == null) {
+                return;
+            }
             String[] lines = new String(ReflectionManager.readFuzzyFully(stream), StandardCharsets.UTF_8).split("\n");
 
             for (String line : lines) {
