@@ -521,6 +521,16 @@ public class DisguiseAPI {
             DisguiseUtilities.getViewSelf().remove(entity.getUniqueId());
             DisguiseUtilities.addSaveAttempt();
         }
+
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            try {
+                Class<?> cls = Class.forName("me.libraryaddict.Hungergames.Managers.SelfDisguiseManager");
+                java.lang.reflect.Method m = cls.getMethod("setEnabled", Player.class, boolean.class);
+                m.invoke(null, player, canSeeSelfDisguises);
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     public static void setActionBarShown(Player player, boolean isShown) {
