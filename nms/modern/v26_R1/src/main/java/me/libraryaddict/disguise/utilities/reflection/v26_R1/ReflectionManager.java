@@ -129,4 +129,9 @@ public class ReflectionManager extends ReflectionManagerLayered {
     public net.minecraft.world.entity.EntityType getEntityType(EntityType entityType) {
         return CraftEntityType.bukkitToMinecraft(entityType);
     }
+
+    @Override
+    public ChunkMap.TrackedEntity getEntityTracker(Entity target) {
+        return ((CraftEntity) target).getHandle().moonrise$getTrackedEntity();
+    }
 }
