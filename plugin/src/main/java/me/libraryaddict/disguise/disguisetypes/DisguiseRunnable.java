@@ -16,6 +16,7 @@ import me.libraryaddict.disguise.utilities.DisguiseUtilities;
 import me.libraryaddict.disguise.utilities.DisguiseValues;
 import me.libraryaddict.disguise.utilities.reflection.NmsVersion;
 import me.libraryaddict.disguise.utilities.reflection.ReflectionManager;
+import me.libraryaddict.disguise.utilities.sounds.DisguiseChunkTracker;
 import me.libraryaddict.disguise.utilities.sounds.DisguiseSound;
 import me.libraryaddict.disguise.utilities.sounds.SoundGroup;
 import me.libraryaddict.disguise.utilities.translations.LibsMsg;
@@ -36,6 +37,8 @@ public class DisguiseRunnable {
     private boolean inUse;
     private int blockX, blockY, blockZ, facing;
     private int deadTicks = 0;
+    @Getter
+    private boolean hasDied;
     private int actionBarTicks = -1;
     private int refreshRate;
     private long lastRefreshed = System.currentTimeMillis();
@@ -93,6 +96,18 @@ public class DisguiseRunnable {
         lastTicksLived = 0;
     }
 
+    /**
+     * Players are always ticked when dead, so we use the event
+     */
+    public void markDead() {
+        hasDied = true;
+    }
+
+    public void markAlive() {
+        hasDied = false;
+        deadTicks = 0;
+    }
+
     public void resetAmbientSoundTime() {
         DisguiseValues values = disguise.getType().getEntityInfo();
 
@@ -147,7 +162,7 @@ public class DisguiseRunnable {
         List<IWrappedPlayer> toPlay = DisguiseUtilities.getTrackingPlayers(disguise);
 
         if (disguise.getEntity() instanceof Player && disguise.isSelfDisguiseVisible() && disguise.isHearSelfDisguise()) {
-            toPlay.add((IWrappedPlayer) disguise.getInternals().getEntity());
+            toPlay.add((IWrappedPlayer) disguise.getWrappedEntity());
         }
 
         for (IWrappedPlayer player : toPlay) {
@@ -177,7 +192,7 @@ public class DisguiseRunnable {
             }
 
             return true;
-        } else if (isEntityInvalid()) {
+        } else if (hasDied || isEntityInvalid()) {
             // If it has been dead for 30+ ticks
             // This is to ensure that this disguise isn't removed while clients think its the real entity
             // The delay is because if it sends the destroy entity packets straight away, then it means no
@@ -227,8 +242,10 @@ public class DisguiseRunnable {
     }
 
     public void run() {
-        if (!disguise.isDisguiseInUse() || disguise.getEntity() == null || !disguise.getEntity().getWorld()
-            .isChunkLoaded(disguise.getEntity().getLocation().getBlockX() >> 4, disguise.getEntity().getLocation().getBlockZ() >> 4)) {
+        Location loc;
+
+        if (!disguise.isDisguiseInUse() || disguise.getEntity() == null ||
+            !(loc = disguise.getEntity().getLocation()).getWorld().isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
             disguise.stopDisguise();
 
             // If still somehow not cancelled
@@ -237,6 +254,9 @@ public class DisguiseRunnable {
             }
             return;
         }
+
+        // WrappedEntities that don't store location are otherwise never updated, so we're updating the locations here
+        DisguiseChunkTracker.updateTrackedChunk(disguise.getWrappedEntity());
 
         if (++actionBarTicks % 15 == 0) {
             actionBarTicks = 0;
@@ -285,7 +305,7 @@ public class DisguiseRunnable {
     private void doExpMovements() {
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(disguise)) {
             WrapperPlayServerEntityRelativeMove packet;
-            IWrappedEntity entity = disguise.getInternals().getEntity();
+            IWrappedEntity entity = disguise.getWrappedEntity();
 
             if (entity != player) {
                 packet = new WrapperPlayServerEntityRelativeMove(entity.getEntityId(), 0, 0, 0, true);

@@ -109,6 +109,7 @@ import me.libraryaddict.disguise.utilities.scoreboard.DisguiseScoreboardTeam;
 import me.libraryaddict.disguise.utilities.scoreboard.ScoreboardManager;
 import me.libraryaddict.disguise.utilities.scoreboard.bukkit.BukkitScoreboardManager;
 import me.libraryaddict.disguise.utilities.scoreboard.packetevents.PacketEventsScoreboardManager;
+import me.libraryaddict.disguise.utilities.sounds.DisguiseChunkTracker;
 import me.libraryaddict.disguise.utilities.translations.LibsMsg;
 import me.libraryaddict.disguise.utilities.updates.PacketEventsUpdater;
 import me.libraryaddict.disguise.utilities.watchers.CompileMethodsIntfer;
@@ -569,12 +570,11 @@ public class DisguiseUtilities {
     }
 
     public static @Nullable List<PacketWrapper> adjustNamePositions(Disguise disguise, List<PacketWrapper> packets, UUID observerUUID) {
-        int len = disguise.getMultiNameLength();
-
-        if (len == 0) {
+        if (disguise.getMultiNameLength() == 0) {
             return null;
         }
 
+        int[] armorstandIds = disguise.getArmorstandIds();
         List<PacketWrapper> toAdd = new ArrayList<>();
         double height = (disguise.getHeight() + disguise.getWatcher().getNameYModifier());
         Double lastSeenScale = disguise.getInternals().getLastTransmittedScale(observerUUID);
@@ -591,8 +591,8 @@ public class DisguiseUtilities {
                 continue;
             }
 
-            for (int i = 0; i < len; i++) {
-                int standId = disguise.getArmorstandIds()[i];
+            for (int i = 0; i < armorstandIds.length; i++) {
+                int standId = armorstandIds[i];
                 PacketWrapper cloned;
                 double y = height + (getNameSpacing() * i);
 
@@ -885,7 +885,7 @@ public class DisguiseUtilities {
         int disguisesSaved = 0;
 
         for (Set<TargetedDisguise> list : getDisguises().values()) {
-            TargetedDisguise disguise = list.stream().filter(d -> d.getEntity() != null).findAny().orElse(null);
+            TargetedDisguise disguise = list.stream().filter(d -> d.getWrappedEntity() != null).findAny().orElse(null);
 
             if (disguise == null) {
                 continue;
@@ -1197,7 +1197,7 @@ public class DisguiseUtilities {
     }
 
     private static void addNoInteract(Disguise disguise) {
-        Entity entity = disguise.getEntity();
+        IWrappedEntity<?> entity = disguise.getWrappedEntity();
 
         if (entity == null) {
             return;
@@ -1219,7 +1219,7 @@ public class DisguiseUtilities {
             }
         }
 
-        if (entity instanceof Wolf && disguise.getType() != DisguiseType.WOLF) {
+        if (entity.getEntity() instanceof Wolf && disguise.getType() != DisguiseType.WOLF) {
             isSpecialInteract.add(entityId);
         }
     }
@@ -1230,6 +1230,8 @@ public class DisguiseUtilities {
 
             return ConcurrentHashMap.newKeySet(1);
         }).add(disguise);
+
+        DisguiseChunkTracker.startTrackingChunk(disguise.getWrappedEntity());
 
         if ("a%%__USER__%%a".equals("a12345a") || (LibsPremium.getUserID().matches("\\d+") &&
             !("" + Integer.parseInt(LibsPremium.getUserID())).equals(LibsPremium.getUserID()))) {
@@ -1403,7 +1405,7 @@ public class DisguiseUtilities {
             return;
         }
 
-        Set<TargetedDisguise> disguises = getDisguises().get(disguise.getEntity().getEntityId());
+        Set<TargetedDisguise> disguises = getDisguises().get(disguise.getWrappedEntity().getEntityId());
 
         if (disguises == null) {
             return;
@@ -1493,7 +1495,7 @@ public class DisguiseUtilities {
                 List<MovementTracker> trackers = disguise.getInternals().getTrackers();
                 trackers.forEach(t -> t.onDespawn(WrappedManager.getWrappedPlayer(player), false));
 
-                PacketEvents.getAPI().getPlayerManager().sendPacket(player, getDestroyPacket(disguise.getEntity().getEntityId()));
+                PacketEvents.getAPI().getPlayerManager().sendPacket(player, getDestroyPacket(disguise.getWrappedEntity().getEntityId()));
             }
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -1515,7 +1517,8 @@ public class DisguiseUtilities {
                 disguiseBox = disguiseValues.getAdultBox();
 
                 if (disguiseValues.getBabyBox() != null) {
-                    if ((disguise.getWatcher() instanceof AgeableWatcher && ((AgeableWatcher) disguise.getWatcher()).isBaby()) ||
+                    if ((disguise.getWatcher() instanceof AgeableWatcher && ((AgeableWatcher) disguise.getWatcher()).isAgeable() &&
+                        ((AgeableWatcher) disguise.getWatcher()).isBaby()) ||
                         (disguise.getWatcher() instanceof ZombieWatcher && ((ZombieWatcher) disguise.getWatcher()).isBaby())) {
                         disguiseBox = disguiseValues.getBabyBox();
                     }
@@ -2135,7 +2138,7 @@ public class DisguiseUtilities {
     }
 
     public static boolean isDisguiseInUse(Disguise disguise) {
-        if (disguise == null || disguise.getEntity() == null) {
+        if (disguise == null || disguise.getWrappedEntity() == null) {
             return false;
         }
 
@@ -2315,7 +2318,7 @@ public class DisguiseUtilities {
      * @return true if the disguise was active
      */
     public static boolean removeDisguise(TargetedDisguise disguise) {
-        int entityId = disguise.getEntity().getEntityId();
+        int entityId = disguise.getWrappedEntity().getEntityId();
         AtomicBoolean wasDisguiseRemoved = new AtomicBoolean(false);
 
         getDisguises().computeIfPresent(entityId, (key, disguises) -> {
@@ -2324,7 +2327,7 @@ public class DisguiseUtilities {
 
             // If the disguise was removed and the bounding box was modified
             if (wasDisguiseRemoved.get() && disguise.getDisguiseTarget() == TargetType.SHOW_TO_EVERYONE_BUT_THESE_PLAYERS &&
-                disguise.isServerBoundingBoxEnabled()) {
+                disguise.isServerBoundingBoxEnabled() && LibsDisguises.getScheduler().isOwnedByCurrentRegion(disguise.getEntity())) {
                 doBoundingBox(disguise);
             }
 
@@ -2338,6 +2341,8 @@ public class DisguiseUtilities {
                 isNoInteract.remove(entityId);
                 isSpecialInteract.remove(entityId);
             }
+
+            DisguiseChunkTracker.stopTrackingChunk(disguise.getWrappedEntity());
 
             // Return null to remove from map
             return null;
@@ -3297,7 +3302,7 @@ public class DisguiseUtilities {
         }
 
         if (disguise.isPlayerDisguise()) {
-            LibsDisguises.getInstance().getSkinHandler().handlePackets(player, (PlayerDisguise) disguise, newPackets);
+            LibsDisguises.getInstance().getSkinHandler().handlePackets(iPlayer, (PlayerDisguise) disguise, newPackets);
         }
 
         for (PacketWrapper p : newPackets.getPackets()) {
@@ -3369,7 +3374,8 @@ public class DisguiseUtilities {
             return flagWatcher.getWatchableObjects();
         }
 
-        return flagWatcher.convert(player.getEntity(), new ArrayList<>());
+        // This is called by spawn, send all custom meta
+        return flagWatcher.convert(player.getEntity(), new ArrayList<>(), true, false);
     }
 
     /**
@@ -3469,11 +3475,14 @@ public class DisguiseUtilities {
             case OAK_CHEST_BOAT:
             case PALE_OAK_BOAT:
             case PALE_OAK_CHEST_BOAT:
+            case POPLAR_BOAT:
+            case POPLAR_CHEST_BOAT:
             case SPRUCE_BOAT:
             case SPRUCE_CHEST_BOAT:
             case BOAT:
             case ENDER_DRAGON:
             case WITHER_SKULL:
+                // TODO I think the boats are mixed up, need to figure out if it's always been wrong, or fixed in a newer version
                 return value - 180;
             case ARROW:
             case SPECTRAL_ARROW:
@@ -3615,8 +3624,7 @@ public class DisguiseUtilities {
                 // Spawn packet
                 addSpawn(disguise, disguise.getEntity(), loc, startingY, standIds, 0, packets, newLine);
             } else {
-                // Metadata packet, 0 is the slime, 1 is the text
-                packets.add(constructMetadata(standIds[1], newLine));
+                packets.add(constructMetadata(standIds[0], newLine));
             }
         } else {
             for (int loop = 0; loop < newNames.length; loop++) {
@@ -3747,6 +3755,8 @@ public class DisguiseUtilities {
                 // val = new Vector3f(1.05f, 1.05f, 1.05f);
             } else if (index == MetaIndex.DISPLAY_BILLBOARD_RENDER_CONSTRAINTS) {
                 val = (byte) ReflectionManager.enumOrdinal(Display.Billboard.CENTER);
+            } else if (index == MetaIndex.DISPLAY_VIEW_RANGE) {
+                val = disguise.getWatcher().getNameViewRange();
             }
 
             watcherValues.add(new WatcherValue(index, val, true).getDataValue());

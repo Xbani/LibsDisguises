@@ -3,6 +3,7 @@ package me.libraryaddict.disguise.utilities.reflection;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
+import com.github.retrooper.packetevents.protocol.color.DyeColor;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemProfile;
 import com.github.retrooper.packetevents.protocol.entity.cat.CatVariant;
 import com.github.retrooper.packetevents.protocol.entity.cat.CatVariants;
@@ -46,10 +47,8 @@ import com.github.retrooper.packetevents.wrapper.configuration.server.WrapperCon
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import com.google.common.collect.ImmutableMultimap;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.minecraft.MinecraftSessionService;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
-import com.mojang.authlib.yggdrasil.ProfileResult;
 import io.netty.buffer.ByteBuf;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -175,7 +174,8 @@ public class ReflectionManager {
     private static ReflectionManagerAbstract nmsReflection;
     private static Field trackedPlayersMap;
     private static Method fillProfileProperties;
-    private static MinecraftSessionService sessionService;
+    private static Method fetchProfile, profileResultProfile;
+    private static Object sessionService;
     private static Method propertyName, propertyValue, propertySignature;
     private static Method gameProfileGetId, gameProfileGetName, gameProfileGetProperties;
     @Getter
@@ -276,6 +276,13 @@ public class ReflectionManager {
         // I don't think authlib is always going to be in sync enough that we can trust this to a specific nms version
         try {
             fillProfileProperties = sessionService.getClass().getMethod("fillProfileProperties", GameProfile.class, boolean.class);
+        } catch (Exception ignored) {
+        }
+
+        try {
+            // Authlib moved ProfileResult's package in later versions
+            fetchProfile = sessionService.getClass().getMethod("fetchProfile", UUID.class, boolean.class);
+            profileResultProfile = fetchProfile.getReturnType().getMethod("profile");
         } catch (Exception ignored) {
         }
 
@@ -800,13 +807,13 @@ public class ReflectionManager {
     public static UserProfile getSkullBlob(UserProfile userProfile) {
         try {
             if (fillProfileProperties == null) {
-                ProfileResult result = sessionService.fetchProfile(userProfile.getUUID(), true);
+                Object result = fetchProfile.invoke(sessionService, userProfile.getUUID(), true);
 
                 if (result == null) {
                     return null;
                 }
 
-                return getUserProfile(result.profile());
+                return getUserProfile((GameProfile) profileResultProfile.invoke(result));
             }
 
             GameProfile gameProfile = new GameProfile(userProfile.getUUID(), userProfile.getName());
@@ -1352,6 +1359,7 @@ public class ReflectionManager {
                 case MANGROVE_CHEST_BOAT:
                 case OAK_CHEST_BOAT:
                 case PALE_OAK_CHEST_BOAT:
+                case POPLAR_CHEST_BOAT:
                 case SPRUCE_CHEST_BOAT:
                     watcherClass = ChestBoatWatcher.class;
                     break;
@@ -1364,6 +1372,7 @@ public class ReflectionManager {
                 case MANGROVE_BOAT:
                 case OAK_BOAT:
                 case PALE_OAK_BOAT:
+                case POPLAR_BOAT:
                 case SPRUCE_BOAT:
                     watcherClass = BoatWatcher.class;
                     break;
@@ -1876,6 +1885,8 @@ public class ReflectionManager {
                 return EntityDataTypes.COPPER_GOLEM_STATE;
             } else if (type1 == WeatheringCopperState.class) {
                 return EntityDataTypes.WEATHERING_COPPER_STATE;
+            } else if (type1 == DyeColor.class) {
+                return EntityDataTypes.DYE_COLOR;
             } else if (type1 instanceof Class && Enum.class.isAssignableFrom((Class<?>) type1)) {
                 if (index.isByteValues()) {
                     return EntityDataTypes.BYTE;

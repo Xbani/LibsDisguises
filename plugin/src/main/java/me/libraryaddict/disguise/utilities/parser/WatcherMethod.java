@@ -3,6 +3,7 @@ package me.libraryaddict.disguise.utilities.parser;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import me.libraryaddict.disguise.DisguiseConfig;
 import me.libraryaddict.disguise.disguisetypes.DisguiseType;
 import me.libraryaddict.disguise.disguisetypes.FlagWatcher;
 
@@ -17,7 +18,13 @@ public class WatcherMethod {
     private WatcherMethod companionMethod;
     private final Class<? extends FlagWatcher> watcherClass;
     private final MethodHandle method;
+    /**
+     * The name of the method that is used externally, eg, permissions or display
+     */
     private final String mappedName;
+    /**
+     * The actual internal name of the method
+     */
     private final String name;
     private final Class returnType;
     private final Class param;
@@ -34,7 +41,15 @@ public class WatcherMethod {
     }
 
     public boolean isHidden(DisguiseType type) {
-        return !isUsable(type) || hiddenFor[type.ordinal()];
+        if (!isUsable(type) || hiddenFor[type.ordinal()]) {
+            return true;
+        }
+
+        if (getName().equalsIgnoreCase("setNameViewRange")) {
+            return DisguiseConfig.getPlayerNameType() != DisguiseConfig.PlayerNameType.TEXT_DISPLAY;
+        }
+
+        return false;
     }
 
     @Override

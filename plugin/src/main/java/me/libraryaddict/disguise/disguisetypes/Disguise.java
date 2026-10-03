@@ -75,7 +75,7 @@ public abstract class Disguise {
      * @return isDisguiseInUse
      */
     @Getter
-    private transient boolean disguiseInUse;
+    private transient volatile boolean disguiseInUse;
     private final DisguiseType disguiseType;
     /**
      * The entity that is disguised
@@ -305,7 +305,7 @@ public abstract class Disguise {
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(this)) {
             if (!DisguiseUtilities.isFancyHiddenTabs() && isPlayerDisguise() &&
-                LibsDisguises.getInstance().getSkinHandler().isSleeping(player.getEntity(), (PlayerDisguise) this)) {
+                LibsDisguises.getInstance().getSkinHandler().isSleeping(player, (PlayerDisguise) this)) {
                 continue;
             }
 
@@ -317,7 +317,7 @@ public abstract class Disguise {
         }
     }
 
-    public int[] getArmorstandIds() {
+    public synchronized int[] getArmorstandIds() {
         int desiredlength = getMultiNameLength();
 
         // If text display and there is a display
@@ -384,7 +384,7 @@ public abstract class Disguise {
 
         // Set the disguise if its a baby or not
         if (!isAdult) {
-            if (getWatcher() instanceof AgeableWatcher) {
+            if (getWatcher() instanceof AgeableWatcher && ((AgeableWatcher) getWatcher()).isAgeable()) {
                 ((AgeableWatcher) getWatcher()).setBaby(true);
             } else if (getWatcher() instanceof ZombieWatcher) {
                 ((ZombieWatcher) getWatcher()).setBaby(true);
@@ -714,10 +714,11 @@ public abstract class Disguise {
      * Sets a custom server-side bounding box used for server hit detection (arrows, melee, etc.). Does not change what clients see.
      * <p>
      * Invoking this with a non-null box also enables server-side hitbox modification ({@code isModifyBoundingBox()}).
-     * Use {@link #setBoundingBox(me.libraryaddict.disguise.utilities.movements.InteractiveBoundingBox)} for client-side interactive hitboxes.
+     * Use {@link #setBoundingBox(me.libraryaddict.disguise.utilities.movements.InteractiveBoundingBox)} for client-side interactive
+     * hitboxes.
      *
      * @param box custom box dimensions, or {@code null} to clear a custom override and disable server-side hitbox modification
-     * ({@link #setModifyBoundingBox(boolean)} can re-enable the disguise type's default server box)
+     *            ({@link #setModifyBoundingBox(boolean)} can re-enable the disguise type's default server box)
      */
     public Disguise setServerBoundingBox(@Nullable FakeBoundingBox box) {
         this.serverBoundingBox = box;
@@ -930,7 +931,13 @@ public abstract class Disguise {
             DisguiseUtilities.saveDisguises(getEntity());
         }
 
+        WrappedManager.scheduleCleanup(getEntity());
+
         return true;
+    }
+
+    void setDisguiseInUse(boolean disguiseInUse) {
+        this.disguiseInUse = disguiseInUse;
     }
 
     public Disguise setHearSelfDisguise(boolean hearSelfDisguise) {
@@ -1098,6 +1105,8 @@ public abstract class Disguise {
         // If they cancelled this disguise event. No idea why.
         // Just return.
         if (event.isCancelled()) {
+            WrappedManager.scheduleCleanup(getEntity());
+
             return false;
         }
 
@@ -1273,7 +1282,7 @@ public abstract class Disguise {
      */
     public void playAnimation(IWrappedPlayer observer, DisguiseAnimation animation) {
         PacketWrapper<?> packet;
-        IWrappedEntity<?> wrappedEntity = getInternals().getEntity();
+        IWrappedEntity<?> wrappedEntity = getWrappedEntity();
 
         if (animation == DisguiseAnimation.HURT) {
             packet = new WrapperPlayServerHurtAnimation(
@@ -1310,7 +1319,7 @@ public abstract class Disguise {
         }
 
         // No validation as there are some animation codes that overlap, and there's no hard reason not to try mismatch
-        int entityId = getInternals().getEntity().getEntityId();
+        int entityId = getWrappedEntity().getEntityId();
         int count = 0;
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(this)) {
@@ -1328,5 +1337,9 @@ public abstract class Disguise {
 
     public InteractiveBoundingBox getBoundingBox() {
         return getInternals().getInteractiveBoundingBox();
+    }
+
+    public IWrappedEntity<?> getWrappedEntity() {
+        return getInternals().getEntity();
     }
 }

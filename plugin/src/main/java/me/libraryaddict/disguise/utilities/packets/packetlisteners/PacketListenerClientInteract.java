@@ -40,7 +40,7 @@ public class PacketListenerClientInteract extends SimplePacketListenerAbstract {
 
     public PacketListenerClientInteract() {
         for (DisguiseType type : new DisguiseType[]{DisguiseType.SALMON, DisguiseType.AXOLOTL, DisguiseType.COD, DisguiseType.TADPOLE,
-            DisguiseType.TROPICAL_FISH, DisguiseType.PUFFERFISH}) {
+            DisguiseType.TROPICAL_FISH, DisguiseType.PUFFERFISH, DisguiseType.SULFUR_CUBE}) {
             bucketableMobs[type.ordinal()] = true;
         }
     }
@@ -165,14 +165,14 @@ public class PacketListenerClientInteract extends SimplePacketListenerAbstract {
 
         // If the disguise is one that can be bucketed
         if (bucketableMobs[disguise.getType().ordinal()]) {
-            DisguiseType entityType = DisguiseType.getType(disguise.getEntity());
+            DisguiseType entityType = DisguiseType.getType(disguise.getWrappedEntity());
 
             // If the entity isn't one that can be bucketed
             if (entityType != null && !bucketableMobs[entityType.ordinal()]) {
                 LibsDisguises.getScheduler().entity(observer.getEntity()).run(() -> {
                     ItemStack heldItem = this.getHeldItem(observer, hand);
 
-                    if (heldItem != null && heldItem.getType() == Material.WATER_BUCKET) {
+                    if (heldItem != null && (heldItem.getType() == Material.BUCKET || heldItem.getType() == Material.WATER_BUCKET)) {
                         DisguiseUtilities.refreshTracker((TargetedDisguise) disguise, observer.getName());
                         observer.getEntity().updateInventory(); // Remove their fake bucket
                     }

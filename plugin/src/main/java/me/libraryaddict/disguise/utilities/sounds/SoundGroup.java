@@ -15,14 +15,16 @@ import me.libraryaddict.disguise.disguisetypes.watchers.WolfWatcher;
 import me.libraryaddict.disguise.utilities.DisguiseUtilities;
 import me.libraryaddict.disguise.utilities.reflection.NmsVersion;
 import me.libraryaddict.disguise.utilities.reflection.ReflectionManager;
+import me.libraryaddict.disguise.utilities.wrapped.IWrappedEntity;
 import org.apache.commons.lang.math.RandomUtils;
 import org.bukkit.entity.Ageable;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.HappyGhast;
 import org.bukkit.entity.Wolf;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +41,7 @@ public class SoundGroup {
 
     @Getter
     private final static LinkedHashMap<String, SoundGroup> groups = new LinkedHashMap<>();
+    private final static HashSet<ResourceLocation> allSounds = new HashSet<>();
     @Getter
     @Setter
     private float damageAndIdleSoundVolume = 1F;
@@ -59,7 +62,7 @@ public class SoundGroup {
         this.soundCategory = category;
 
         try {
-            DisguiseType.valueOf(name);
+            DisguiseType.valueOf(name.split("\\$")[0]);
         } catch (Exception ex) {
             customSounds = true;
         }
@@ -73,7 +76,18 @@ public class SoundGroup {
         return soundCategory;
     }
 
+    public static void clearGroups() {
+        groups.clear();
+        allSounds.clear();
+    }
+
+    public static boolean isReplaceableSound(ResourceLocation sound) {
+        return allSounds.contains(sound);
+    }
+
     public void addRemappedSound(ResourceLocation oldSound, DisguiseSound disguiseSound) {
+        allSounds.add(oldSound);
+
         remappedSounds.compute(oldSound, (key, value) -> {
             if (disguiseSound == null) {
                 return new DisguiseSound[]{null};
@@ -90,13 +104,25 @@ public class SoundGroup {
         });
     }
 
-    public void addSound(SoundType type, ResourceLocation disguiseSound) {
+    /**
+     * Registers a sound as belonging to this type, without it becoming a sound this group plays.
+     * <p>
+     * Used for the regex entries in SOUND_MAPPINGS.txt, such as PLAYER's "^block\.[a-z_]+\.step" which matches every
+     * block's step sound.
+     */
+    public void addRecognizedSound(SoundType type, ResourceLocation sound) {
+        disguiseSoundTypes.putIfAbsent(sound, type);
+        allSounds.add(sound);
+    }
+
+    public void addSound(SoundType type, @Nullable ResourceLocation disguiseSound) {
         addSound(type, disguiseSound != null ? new DisguiseSound(disguiseSound) : null);
     }
 
-    public void addSound(SoundType type, DisguiseSound disguiseSound) {
+    public void addSound(SoundType type, @Nullable DisguiseSound disguiseSound) {
         if (disguiseSound != null) {
             disguiseSoundTypes.putIfAbsent(disguiseSound.getSound(), type);
+            allSounds.add(disguiseSound.getSound());
         }
 
         if (disguiseSounds.containsKey(type)) {
@@ -120,16 +146,30 @@ public class SoundGroup {
         }
     }
 
-    public DisguiseSound getSound(SoundType type, ResourceLocation actualSound) {
+    /**
+     * The sound this group plays in place of one the disguised entity made.
+     *
+     * @param type        the type actualSound was recognized as, by entityGroup
+     * @param actualSound the sound the entity played
+     * @param entityGroup the group of the entity wearing this disguise
+     * @return the replacement, or null for the sound to be cancelled
+     */
+    public @Nullable DisguiseSound getSound(SoundType type, ResourceLocation actualSound, SoundGroup entityGroup) {
         if (remappedSounds.containsKey(actualSound)) {
             return getRandomSound(remappedSounds.get(actualSound));
+        }
+
+        // The entity already sounds like this disguise, eg a player disguise stone step
+        if (entityGroup == this) {
+            return new DisguiseSound(actualSound);
         }
 
         return getSound(type);
     }
 
-    public DisguiseSound getSound(SoundType type) {
-        if (type == null) {
+    public @Nullable DisguiseSound getSound(SoundType type) {
+        // Ignored sounds are registered so they can be silenced, not played back
+        if (type == null || type == SoundType.CANCEL) {
             return null;
         }
 
@@ -235,19 +275,20 @@ public class SoundGroup {
         return getGroup(entityName, variantName);
     }
 
-    public static SoundGroup getGroup(Entity entity) {
+    public static SoundGroup getGroup(IWrappedEntity<?> entity) {
         String name = entity.getType().name();
         String variantName = null;
 
-        if (entity instanceof Wolf && NmsVersion.v1_21_R4.isSupported()) {
+        if (entity.getEntity() instanceof Wolf && NmsVersion.v1_21_R4.isSupported()) {
             // At the point of writing, spigot does not have a Wolf.SoundVariants
             // Paper on the contrary, has implemented it in their version
             if (DisguiseUtilities.isRunningPaper()) {
-                variantName = ((Wolf) entity).getSoundVariant().getKey().getKey();
+                variantName = ((Wolf) entity.getEntity()).getSoundVariant().getKey().getKey();
             } else {
-                variantName = ReflectionManager.getNmsReflection().getVariant(entity, WolfSoundVariants.getRegistry());
+                variantName = ReflectionManager.getNmsReflection().getVariant(entity.getEntity(), WolfSoundVariants.getRegistry());
             }
-        } else if (NmsVersion.v1_21_R5.isSupported() && entity instanceof HappyGhast && !((Ageable) entity).isAdult()) {
+        } else if (NmsVersion.v1_21_R5.isSupported() && entity.getEntity() instanceof HappyGhast &&
+            !((Ageable) entity.getEntity()).isAdult()) {
             name = "GHASTLING";
         }
 

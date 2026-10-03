@@ -16,6 +16,7 @@ import me.libraryaddict.disguise.utilities.reflection.NmsVersion;
 import me.libraryaddict.disguise.utilities.scaling.DisguiseScaling;
 import me.libraryaddict.disguise.utilities.wrapped.IWrappedEntity;
 import me.libraryaddict.disguise.utilities.wrapped.IWrappedPlayer;
+import me.libraryaddict.disguise.utilities.wrapped.WrappedManager;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
@@ -140,6 +141,10 @@ public class DisguiseInternals<D extends Disguise> implements DisguiseScaling.Di
      * @param player
      * @return
      */
+    public synchronized boolean shouldAvoidSendingPackets(IWrappedPlayer player) {
+        return shouldAvoidSendingPackets(player.getUniqueId());
+    }
+
     public synchronized boolean shouldAvoidSendingPackets(Player player) {
         return shouldAvoidSendingPackets(player.getUniqueId());
     }
@@ -220,6 +225,38 @@ public class DisguiseInternals<D extends Disguise> implements DisguiseScaling.Di
 
         runnable.stop();
         runnable = null;
+    }
+
+    /**
+     * Counterpart to removeDisguise() for when the entity's thread is practically inaccessible
+     *
+     * @return true if disguise was in use, and discarded
+     */
+    public boolean discardDisguise() {
+        if (!getDisguise().isDisguiseInUse()) {
+            return false;
+        }
+
+        // Mark this as in limbo for all the "currently seeing" entities
+        for (UUID sees : seesDisguise) {
+            DisguiseUtilities.getSeenTracker().setDisguiseBeingChangedOver(sees, getEntity().getEntityId());
+        }
+
+        // Clear the seen
+        seesDisguise.clear();
+        clearRememberedScaling();
+
+        if (runnable != null) {
+            runnable.stop();
+            runnable = null;
+        }
+
+        boolean disguiseWasActive = DisguiseUtilities.removeDisguise((TargetedDisguise) getDisguise());
+        getDisguise().setDisguiseInUse(false);
+
+        WrappedManager.scheduleCleanup(getDisguise().getEntity());
+
+        return disguiseWasActive;
     }
 
     private void updateEntityScaleWithoutLibsDisguises() {

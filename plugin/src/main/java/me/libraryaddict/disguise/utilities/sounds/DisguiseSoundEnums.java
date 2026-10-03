@@ -5,16 +5,20 @@ import me.libraryaddict.disguise.LibsDisguises;
 import me.libraryaddict.disguise.utilities.sounds.SoundGroup.SoundType;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
 
 @Getter
 public class DisguiseSoundEnums {
     @Getter
     private static final List<DisguiseSoundEnums> values = new ArrayList<>();
     private final String name;
-    private final HashMap<String, SoundType> sounds = new HashMap<>();
+    // The first sound declared for a type is the one a disguise plays
+    private final Map<String, SoundType> sounds = new LinkedHashMap<>();
     private String[] variants;
+    private BiFunction<String, String, String> variantNamer;
 
     private DisguiseSoundEnums(String name) {
         // We seperate the sound loading and definition logic because the server is likely to be missing sounds via outdated packetevents
@@ -28,7 +32,8 @@ public class DisguiseSoundEnums {
         getValues().add(this);
     }
 
-    public DisguiseSoundEnums setVariants(String... variants) {
+    public DisguiseSoundEnums setVariants(BiFunction<String, String, String> variantNamer, String... variants) {
+        this.variantNamer = variantNamer;
         this.variants = variants;
 
         return this;
@@ -136,7 +141,9 @@ public class DisguiseSoundEnums {
             .setDeath("!entity.copper_golem.death").setIdle("!entity.copper_golem.ambient")
             .setIgnored("entity.copper_golem.spin", "entity.copper_golem.look", "entity.copper_golem.spawn",
                 "entity.copper_golem.item_drop", "entity.copper_golem.item_no_drop", "entity.copper_golem.no_item_get",
-                "entity.copper_golem.no_item_no_get", "entity.copper_golem_become_statue").setVariants("weathered", "oxidized");
+                "entity.copper_golem.no_item_no_get", "entity.copper_golem_become_statue")
+            .setVariants((sound, variant) -> sound.replace("entity.copper_golem.", "entity.copper_golem_" + variant + "."), "weathered",
+                "oxidized");
 
         register("COW").setHurt("entity.cow.hurt").setDeath("entity.cow.death").setStep("entity.cow.step").setIdle("entity.cow.ambient");
 
@@ -147,15 +154,18 @@ public class DisguiseSoundEnums {
         register("CREEPER").setHurt("entity.creeper.hurt").setDeath("entity.creeper.death").setStep("block.grass.step")
             .setIgnored("entity.creeper.primed");
 
+        register("CUSHION").setDeath("entity.cushion.break").setStep("entity.cushion.place")
+            .setIgnored("entity.cushion.sit", "entity.cushion.get_up");
+
         register("DOLPHIN").setHurt("entity.dolphin.hurt").setDeath("entity.dolphin.death").setStep("entity.dolphin.swim")
             .setIdle("entity.dolphin.ambient", "entity.dolphin.ambient_water")
             .setIgnored("entity.dolphin.attack", "entity.dolphin.eat", "entity.dolphin.splash", "entity.dolphin.play",
                 "entity.dolphin.jump", "entity.fish.swim");
 
         register("DONKEY").setHurt("entity.donkey.hurt").setDeath("entity.donkey.death")
-            .setStep("block.grass.step", "entity.horse.step_wood").setIdle("entity.donkey.ambient")
+            .setStep("entity.horse.step", "entity.horse.step_wood", "block.grass.step").setIdle("entity.donkey.ambient")
             .setIgnored("entity.horse.gallop", "entity.horse.saddle", "entity.donkey.angry", "entity.horse.armor", "entity.horse.land",
-                "entity.horse.jump", "entity.horse.angry", "entity.donkey.chest");
+                "entity.horse.jump", "entity.donkey.jump", "entity.donkey.eat", "entity.donkey.chest", "item.saddle.unequip");
 
         register("DROWNED").setHurt("entity.drowned.hurt", "entity.drowned.hurt_water")
             .setDeath("entity.drowned.death", "entity.drowned.death_water").setStep("entity.drowned.step", "entity.drowned.swim")
@@ -223,8 +233,8 @@ public class DisguiseSoundEnums {
 
         register("HORSE").setHurt("entity.horse.hurt").setDeath("entity.horse.death").setStep("entity.horse.step", "entity.horse.step_wood")
             .setIdle("entity.horse.ambient")
-            .setIgnored("entity.horse.gallop", "entity.horse.saddle", "entity.donkey.angry", "entity.horse.armor", "entity.horse.land",
-                "entity.horse.jump", "entity.horse.angry", "entity.horse.eat", "entity.horse.breathe");
+            .setIgnored("entity.horse.gallop", "entity.horse.saddle", "entity.horse.armor", "entity.horse.land", "entity.horse.jump",
+                "entity.horse.angry", "entity.horse.eat", "entity.horse.breathe");
 
         register("HUSK").setHurt("entity.husk.hurt").setDeath("entity.husk.death").setStep("entity.husk.step")
             .setIdle("entity.husk.ambient").setIgnored("entity.husk.converted_to_zombie");
@@ -316,7 +326,10 @@ public class DisguiseSoundEnums {
         register("PILLAGER").setHurt("entity.pillager.hurt").setDeath("entity.pillager.death").setStep("block.grass.step")
             .setIdle("entity.pillager.ambient").setIgnored("entity.pillager.celebrate");
 
-        register("PLAYER").setHurt("entity.player.hurt").setDeath("entity.player.death").setStep("^block\\.[a-z_]+\\.step");
+        // Picking the accurate block's step sound would need block lookups or delayed sound packets
+        // So if we cannot resolve to a sound with regex, we pass through
+        register("PLAYER").setHurt("entity.player.hurt").setDeath("entity.player.death")
+            .setStep("block.grass.step", "^block\\.[a-z_]+\\.step");
 
         register("POLAR_BEAR").setHurt("entity.polar_bear.hurt").setDeath("entity.polar_bear.death").setStep("entity.polar_bear.step")
             .setIdle("entity.polar_bear.ambient", "entity.polar_bear.ambient_baby").setIgnored("entity.polar_bear.warning");
@@ -379,6 +392,20 @@ public class DisguiseSoundEnums {
             .setStep("entity.strider.step", "entity.strider.step_lava").setIdle("entity.strider.ambient")
             .setIgnored("entity.strider.eat", "entity.strider.happy", "entity.strider.retreat", "entity.strider.saddle");
 
+        register("SULFUR_CUBE").setHurt("!entity.sulfur_cube.hurt").setDeath("!entity.sulfur_cube.death")
+            .setStep("!entity.sulfur_cube.jump", "!entity.sulfur_cube.squish")
+            .setIgnored("!entity.sulfur_cube.eat", "!entity.sulfur_cube.eject", "entity.sulfur_cube.absorb",
+                "entity.sulfur_cube.bouncy.hit", "entity.sulfur_cube.bouncy.push", "entity.sulfur_cube.explosive.hit",
+                "entity.sulfur_cube.explosive.push", "entity.sulfur_cube.fast_flat.hit", "entity.sulfur_cube.fast_flat.push",
+                "entity.sulfur_cube.fast_sliding.hit", "entity.sulfur_cube.fast_sliding.push", "entity.sulfur_cube.high_resistance.hit",
+                "entity.sulfur_cube.high_resistance.push", "entity.sulfur_cube.hot.hit", "entity.sulfur_cube.hot.push",
+                "entity.sulfur_cube.light.hit", "entity.sulfur_cube.light.push", "entity.sulfur_cube.slow_bouncy.hit",
+                "entity.sulfur_cube.slow_bouncy.push", "entity.sulfur_cube.slow_flat.hit", "entity.sulfur_cube.slow_flat.push",
+                "entity.sulfur_cube.slow_sliding.hit", "entity.sulfur_cube.slow_sliding.push", "entity.sulfur_cube.sticky.hit",
+                "entity.sulfur_cube.sticky.push", "entity.sulfur_cube.regular.hit", "entity.sulfur_cube.regular.push",
+                "entity.sulfur_cube.bounce", "entity.tnt.primed", "entity.generic.explode")
+            .setVariants((sound, variant) -> sound.replace("entity.", "entity." + variant + "_"), "small");
+
         register("TADPOLE").setHurt("entity.tadpole.hurt").setDeath("entity.tadpole.death")
             .setIgnored("entity.tadpole.flop", "item.bucket.empty_tadpole", "item.bucket.fill_tadpole");
 
@@ -429,7 +456,8 @@ public class DisguiseSoundEnums {
         register("WOLF").setHurt("!entity.wolf.hurt").setStep("!entity.wolf.step").setDeath("!entity.wolf.death")
             .setIdle("!entity.wolf.ambient")
             .setIgnored("!entity.wolf.growl", "!entity.wolf.pant", "!entity.wolf.white", "!entity.wolf.howl")
-            .setVariants("puglin", "sad", "angry", "grumpy", "big", "cute");
+            .setVariants((sound, variant) -> sound.replace("entity.wolf.", "entity.wolf_" + variant + "."), "puglin", "sad", "angry",
+                "grumpy", "big", "cute");
 
         register("ZOGLIN").setHurt("entity.zoglin.hurt").setDeath("entity.zoglin.death").setStep("entity.zoglin.step")
             .setIdle("entity.zoglin.ambient").setIgnored("entity.zoglin.angry", "entity.zoglin.attack");

@@ -14,6 +14,7 @@ import me.libraryaddict.disguise.utilities.reflection.annotations.NmsAddedIn;
 import me.libraryaddict.disguise.utilities.reflection.annotations.NmsEntityName;
 import me.libraryaddict.disguise.utilities.reflection.annotations.NmsRemovedIn;
 import me.libraryaddict.disguise.utilities.translations.TranslateType;
+import me.libraryaddict.disguise.utilities.wrapped.IWrappedEntity;
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -90,6 +91,8 @@ public enum DisguiseType {
     @Deprecated @NmsAddedIn(NmsVersion.UNSUPPORTED) CREAKING_TRANSIENT,
 
     CREEPER,
+
+    @NmsAddedIn(NmsVersion.v26_R3) CUSHION,
 
     @NmsAddedIn(NmsVersion.v1_21_R2) DARK_OAK_BOAT,
 
@@ -251,6 +254,10 @@ public enum DisguiseType {
 
     POLAR_BEAR,
 
+    @NmsAddedIn(NmsVersion.v26_R3) POPLAR_BOAT,
+
+    @NmsAddedIn(NmsVersion.v26_R3) POPLAR_CHEST_BOAT,
+
     @NmsEntityName("tnt") PRIMED_TNT(50),
 
     @NmsAddedIn(NmsVersion.v1_13) PUFFERFISH,
@@ -298,6 +305,8 @@ public enum DisguiseType {
     STRAY,
 
     @NmsAddedIn(NmsVersion.v1_16) STRIDER,
+
+    @NmsAddedIn(NmsVersion.v26_R2) SULFUR_CUBE,
 
     @NmsAddedIn(NmsVersion.v1_19_R1) TADPOLE,
 
@@ -350,6 +359,10 @@ public enum DisguiseType {
     ZOMBIE_VILLAGER,
 
     @NmsAddedIn(NmsVersion.v1_16) ZOMBIFIED_PIGLIN;
+
+    public static DisguiseType getType(IWrappedEntity<?> entity) {
+        return getType(entity.getType());
+    }
 
     public static DisguiseType getType(Entity entity) {
         return getType(entity.getType());

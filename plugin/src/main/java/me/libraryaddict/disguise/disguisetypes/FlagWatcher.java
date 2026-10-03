@@ -1,5 +1,6 @@
 package me.libraryaddict.disguise.disguisetypes;
 
+import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.pose.EntityPose;
 import com.github.retrooper.packetevents.protocol.player.Equipment;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
@@ -35,7 +36,6 @@ import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
@@ -99,6 +99,8 @@ public class FlagWatcher {
     private float yModifier;
     @Getter
     private float nameYModifier;
+    @Getter
+    private float nameViewRange = 1F;
     private static boolean canHear;
 
     public FlagWatcher(Disguise disguise) {
@@ -132,7 +134,7 @@ public class FlagWatcher {
             return;
         }
 
-        Entity entity = getDisguise().getEntity();
+        IWrappedEntity<?> entity = getDisguise().getWrappedEntity();
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(getDisguise())) {
             WrapperPlayServerEntityTeleport teleport =
@@ -140,6 +142,28 @@ public class FlagWatcher {
                     entity.isOnGround());
 
             player.sendPacket(teleport);
+        }
+    }
+
+    /**
+     * Multiplies how far away the nametag can be seen from, vanilla default is 1.
+     * <p>
+     * Only takes effect when PlayerNames is set to TEXT_DISPLAY, as the metadata is only for display.
+     */
+    public void setNameViewRange(float nameViewRange) {
+        this.nameViewRange = nameViewRange;
+
+        if (!getDisguise().getInternals().getNameDisplayType().isTextDisplayType() || !getDisguise().isDisguiseInUse() ||
+            getDisguise().getMultiNameLength() == 0) {
+            return;
+        }
+
+        int entityId = getDisguise().getArmorstandIds()[0];
+        EntityData data = ReflectionManager.getEntityData(MetaIndex.DISPLAY_VIEW_RANGE, nameViewRange, true);
+        WrapperPlayServerEntityMetadata packet = new WrapperPlayServerEntityMetadata(entityId, Collections.singletonList(data));
+
+        for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(getDisguise())) {
+            player.sendPacket(packet);
         }
     }
 
@@ -154,7 +178,7 @@ public class FlagWatcher {
             return;
         }
 
-        IWrappedEntity entity = getDisguise().getInternals().getEntity();
+        IWrappedEntity entity = getDisguise().getWrappedEntity();
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(getDisguise())) {
             WrapperPlayServerEntityTeleport teleport =
@@ -198,7 +222,7 @@ public class FlagWatcher {
     }
 
     private void sendHeadPacket() {
-        IWrappedEntity entity = getDisguise().getInternals().getEntity();
+        IWrappedEntity entity = getDisguise().getWrappedEntity();
         Location loc = entity.getLocation();
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(getDisguise())) {
@@ -411,6 +435,7 @@ public class FlagWatcher {
                 if (hasValue(MetaIndex.LIVING_HEALTH)) {
                     health = ((LivingWatcher) this).getHealth();
                 } else if (getDisguise().getEntity() instanceof LivingEntity) {
+                    // TODO Not thread safe
                     health = (float) ((LivingEntity) getDisguise().getEntity()).getHealth();
                 } else {
                     health = MetaIndex.LIVING_HEALTH.getDefault();
@@ -512,7 +537,7 @@ public class FlagWatcher {
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(getDisguise())) {
             if (!DisguiseUtilities.isFancyHiddenTabs() && getDisguise().isPlayerDisguise() &&
-                LibsDisguises.getInstance().getSkinHandler().isSleeping(player.getEntity(), (PlayerDisguise) getDisguise())) {
+                LibsDisguises.getInstance().getSkinHandler().isSleeping(player, (PlayerDisguise) getDisguise())) {
                 continue;
             }
 
@@ -927,7 +952,7 @@ public class FlagWatcher {
             return;
         }
 
-        IWrappedEntity entity = getDisguise().getInternals().getEntity();
+        IWrappedEntity entity = getDisguise().getWrappedEntity();
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(getDisguise())) {
             if (getDisguise().getInternals().shouldAvoidSendingPackets(player.getEntity())) {
@@ -1010,7 +1035,7 @@ public class FlagWatcher {
             itemStack = DisguiseUtilities.getEquipment(slot, getDisguise().getEntity());
         }
 
-        IWrappedEntity entity = getDisguise().getInternals().getEntity();
+        IWrappedEntity entity = getDisguise().getWrappedEntity();
 
         for (IWrappedPlayer player : DisguiseUtilities.getTrackingPlayers(getDisguise())) {
             List<Equipment> list =

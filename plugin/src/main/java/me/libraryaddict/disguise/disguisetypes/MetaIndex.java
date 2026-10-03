@@ -1,5 +1,6 @@
 package me.libraryaddict.disguise.disguisetypes;
 
+import com.github.retrooper.packetevents.protocol.color.DyeColor;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemProfile;
 import com.github.retrooper.packetevents.protocol.entity.armadillo.ArmadilloState;
 import com.github.retrooper.packetevents.protocol.entity.cat.CatSoundVariant;
@@ -60,6 +61,7 @@ import me.libraryaddict.disguise.disguisetypes.watchers.CopperGolemWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.CowWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.CreakingWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.CreeperWatcher;
+import me.libraryaddict.disguise.disguisetypes.watchers.CushionWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.DisplayWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.DolphinWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.DroppedItemWatcher;
@@ -123,6 +125,7 @@ import me.libraryaddict.disguise.disguisetypes.watchers.SnowmanWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.SpiderWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.SplashPotionWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.StriderWatcher;
+import me.libraryaddict.disguise.disguisetypes.watchers.SulfurCubeWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.TNTWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.TadpoleWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.TameableWatcher;
@@ -427,6 +430,8 @@ public class MetaIndex<Y> {
      * No visible effect
      */
     public static MetaIndex<Integer> CREEPER_STATE = new MetaIndex<>(CreeperWatcher.class, 0, -1);
+
+    public static MetaIndex<DyeColor> CUSHION_COLOR = new MetaIndex<>(CushionWatcher.class, 0, DyeColor.WHITE);
 
     public static MetaIndex<Integer> DISPLAY_INTERPOLATION_START_DELTA_TICKS = new MetaIndex<>(DisplayWatcher.class, 0, 0);
 
@@ -953,6 +958,10 @@ public class MetaIndex<Y> {
     @NmsAddedIn(NmsVersion.v1_16)
     @NmsRemovedIn(NmsVersion.v1_21_R4)
     public static MetaIndex<Boolean> STRIDER_SADDLED = new MetaIndex<>(StriderWatcher.class, 2, false);
+
+    public static MetaIndex<Integer> SULFUR_CUBE_MAX_FUSE = new MetaIndex<>(SulfurCubeWatcher.class, 0, -1);
+
+    public static MetaIndex<Boolean> SULFUR_CUBE_FROM_BUCKET = new MetaIndex<>(SulfurCubeWatcher.class, 1, false);
 
     public static MetaIndex<Byte> SPIDER_CLIMB = new MetaIndex<>(SpiderWatcher.class, 0, (byte) 0);
 

@@ -15,24 +15,19 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
 
 public class BukkitScoreboardManager extends AbstractScoreboardManager {
     @Override
     public Collection<Scoreboard> getAllScoreboards() {
-        List<Scoreboard> boards = new ArrayList<>();
+        Set<Scoreboard> boards = new LinkedHashSet<>();
 
         boards.add(Bukkit.getScoreboardManager().getMainScoreboard());
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (boards.contains(player.getScoreboard())) {
-                continue;
-            }
-
             boards.add(player.getScoreboard());
         }
 
@@ -100,13 +95,19 @@ public class BukkitScoreboardManager extends AbstractScoreboardManager {
                     continue;
                 }
 
-                DisguiseScoreboardTeam name = ((PlayerDisguise) disguise).getScoreboardName();
+                PlayerDisguise pDisguise = (PlayerDisguise) disguise;
+
+                if (!pDisguise.hasScoreboardName()) {
+                    continue;
+                }
+
+                DisguiseScoreboardTeam name = pDisguise.getScoreboardName();
 
                 if (name == null || name.getTeamName() == null) {
                     continue;
                 }
 
-                applyTeam(scoreboard, name, ((PlayerDisguise) disguise).isNameVisible());
+                applyTeam(scoreboard, name, pDisguise.isNameVisible());
             }
         }
     }
@@ -117,19 +118,20 @@ public class BukkitScoreboardManager extends AbstractScoreboardManager {
             return;
         }
 
+        String entry = uuid.toString();
         String name = color == null ? "" : getTeamName(color);
 
         for (Scoreboard scoreboard : getAllScoreboards()) {
-            Team team = scoreboard.getEntryTeam(uuid.toString());
+            Team team = scoreboard.getEntryTeam(entry);
 
             if (team != null) {
                 if (!team.getName().startsWith(COLOR_TEAM_PREFIX) || name.equals(team.getName())) {
                     continue;
                 }
 
-                team.removeEntry(uuid.toString());
+                team.removeEntry(entry);
 
-                if (team.getEntries().isEmpty() && team.getName().startsWith(COLOR_TEAM_PREFIX)) {
+                if (team.getSize() == 0) {
                     team.unregister();
                 }
             }
@@ -145,7 +147,11 @@ public class BukkitScoreboardManager extends AbstractScoreboardManager {
                 team.setColor(color);
             }
 
-            team.addEntry(uuid.toString());
+            if (DisguiseConfig.isModifyCollisions() && team.getOption(Team.Option.COLLISION_RULE) != Team.OptionStatus.NEVER) {
+                team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
+            }
+
+            team.addEntry(entry);
         }
     }
 
